@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>GBM Agent Dashboard</title>
+    <style>
+        body{font-family:Arial;margin:20px;background:#f5f5f5}
+        .card{background:#fff;padding:15px;margin-bottom:10px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+        h2{margin-top:0}
+        pre{background:#f0f0f0;padding:8px;border-radius:4px;white-space:pre-wrap}
+    </style>
+</head>
+<body>
+<h1>GBM Agent Dashboard</h1>
+
+<div class="card"><h2>系统指标</h2>
+    CPU: <span id="cpu">-</span>%<br/>
+    内存: <span id="mem">-</span>%<br/>
+    磁盘: <span id="disk">-</span>%<br/>
+    网络 ↑<span id="net_up">-</span> ↓<span id="net_down">-</span>
+</div>
+
+<div class="card"><h2>进程 Top</h2>
+    <table id="procs" border="1" cellpadding="4" style="border-collapse:collapse;width:100%">
+        <thead><tr><th>PID</th><th>Name</th><th>CPU%</th><th>Mem%</th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<div class="card"><h2>自定义 Hooks</h2>
+    <pre id="hooks">-</pre>
+</div>
+
+<script>
+    const source = new EventSource("/stream");
+    source.onmessage = e => {
+        const d = JSON.parse(e.data);
+        document.getElementById('cpu').textContent   = d.cpu_percent.toFixed(1);
+        document.getElementById('mem').textContent   = d.mem_percent.toFixed(1);
+        document.getElementById('disk').textContent  = d.disk_percent.toFixed(1);
+        document.getElementById('net_up').textContent = (d.network.bytes_sent/1024).toFixed(0);
+        document.getElementById('net_down').textContent = (d.network.bytes_recv/1024).toFixed(0);
+
+        const tbody = document.querySelector('#procs tbody');
+        tbody.innerHTML = '';
+        d.processes.forEach(p => {
+            const tr = tbody.insertRow();
+            tr.insertCell(0).textContent = p.pid;
+            tr.insertCell(1).textContent = p.name;
+            tr.insertCell(2).textContent = p.cpu_percent.toFixed(1);
+            tr.insertCell(3).textContent = p.mem_percent.toFixed(1);
+        });
+
+        document.getElementById('hooks').textContent = JSON.stringify(d.custom, null, 2);
+    };
+</script>
+</body>
+</html>

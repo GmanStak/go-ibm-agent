@@ -1,0 +1,21 @@
+interval: 10s
+tems_urls:
+  - "http://localhost:8080/metrics"
+  - "http://localhost:8080/metrics"
+
+
+# 进程采集规则
+processes:
+  - name: "QQPYBroker.exe"            # 按进程名
+  - pid: 8904                # 按 PID
+  - regex: "java.*"          # 正则匹配
+
+# hooks
+hooks_dir: "./hooks.d"
+hook_timeout: 5s
+
+# 热加载
+watch_config: true
+
+web:
+  addr: ":8443"           # 监听地址
