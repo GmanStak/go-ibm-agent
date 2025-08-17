@@ -19,3 +19,6 @@ watch_config: true
 
 web:
   addr: ":8443"           # 监听地址
+basic:
+  user: admin
+  pass: secret123
