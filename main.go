@@ -53,6 +53,10 @@ type Config struct {
 		Addr string `yaml:"addr"` // 仅监听地址
 	} `yaml:"web"`
 	//BlacklistFile string `yaml:"blacklist_file"`
+	Basic struct {
+		User string `yaml:"user"`
+		Pass string `yaml:"pass"`
+	} `yaml:"basic"`
 }
 
 // -------------- 指标 --------------
@@ -303,11 +307,14 @@ func runWeb() {
 	if addr == "" {
 		addr = ":8080"
 	}
+	user := cfg.Basic.User
+	pass := cfg.Basic.Pass
 	cfgLock.RUnlock()
 
-	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(webFS))
-	mux.HandleFunc("/stream", func(w http.ResponseWriter, r *http.Request) {
+	// 内层路由，放真正的业务 handler
+	inner := http.NewServeMux()
+	inner.Handle("/", http.FileServer(webFS))
+	inner.HandleFunc("/stream", func(w http.ResponseWriter, r *http.Request) {
 		flusher, ok := w.(http.Flusher)
 		if !ok {
 			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
@@ -333,8 +340,27 @@ func runWeb() {
 			}
 		}
 	})
+
+	// 外层路由：先检查 Basic Auth，通过后再交给 inner
+	outer := http.NewServeMux()
+	outer.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// 若未配置账号密码，直接跳过认证
+		if user == "" && pass == "" {
+			inner.ServeHTTP(w, r)
+			return
+		}
+
+		u, p, ok := r.BasicAuth()
+		if !ok || u != user || p != pass {
+			w.Header().Set("WWW-Authenticate", `Basic realm="restricted"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		inner.ServeHTTP(w, r)
+	})
+
 	log.Printf("dashboard: http://localhost%s", addr)
-	log.Fatal(http.ListenAndServe(addr, mux))
+	log.Fatal(http.ListenAndServe(addr, outer))
 }
 
 // -------------- 主函数 --------------
